@@ -267,7 +267,7 @@ class AirQualityAPI {
     }
 
     async fetchFromPrimaryAPI(city) {
-        const cityCoordinates = this.getCityCoordinates(city);
+        const cityCoordinates = await this.getCityCoordinates(city);
         
         const url = `${this.airQualityURL}?latitude=${cityCoordinates.lat}&longitude=${cityCoordinates.lng}&current=us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,carbon_dioxide&hourly=us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,carbon_dioxide&forecast_days=5&timezone=Asia/Manila&domains=cams_global`;
         
@@ -286,7 +286,7 @@ class AirQualityAPI {
     }
 
     async fetchWeatherData(city) {
-        const cityCoordinates = this.getCityCoordinates(city);
+        const cityCoordinates = await this.getCityCoordinates(city);
         
         const url = `${this.weatherURL}?latitude=${cityCoordinates.lat}&longitude=${cityCoordinates.lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max&forecast_days=5&timezone=Asia/Manila`;
         
@@ -468,8 +468,34 @@ class AirQualityAPI {
         return sum / arr.length;
     }
 
-    getCityCoordinates(city) {
-        // Major Philippines city coordinates
+    async getCityCoordinates(city) {
+        // Check cache first
+        const cacheKey = `coords_${city.toLowerCase()}`;
+        const cached = this.cache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+            return cached.data;
+        }
+
+        // Try geocoding API for accurate coordinates
+        try {
+            const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`);
+            const data = await response.json();
+            
+            if (data.results && data.results.length > 0) {
+                const result = data.results[0];
+                const coordinates = { lat: result.latitude, lng: result.longitude };
+                
+                // Cache the result
+                this.cache.set(cacheKey, { data: coordinates, timestamp: Date.now() });
+                
+                console.log(`Geocoded ${city} to:`, coordinates);
+                return coordinates;
+            }
+        } catch (error) {
+            console.warn('Geocoding API failed, falling back to hardcoded coordinates:', error);
+        }
+
+        // Fallback to hardcoded coordinates for major cities
         const coordinates = {
             'manila': { lat: 14.5995, lng: 120.9842 },
             'quezon city': { lat: 14.6760, lng: 121.0437 },
@@ -505,7 +531,15 @@ class AirQualityAPI {
             'sorsogon city': { lat: 12.9739, lng: 123.9742 }
         };
         
-        return coordinates[city.toLowerCase()] || { lat: 14.5995, lng: 120.9842 }; // Default to Manila
+        const hardcodedCoords = coordinates[city.toLowerCase()];
+        if (hardcodedCoords) {
+            // Cache the hardcoded result
+            this.cache.set(cacheKey, { data: hardcodedCoords, timestamp: Date.now() });
+            return hardcodedCoords;
+        }
+        
+        // No coordinates found - throw error to ensure data accuracy
+        throw new Error(`Unable to find coordinates for city: "${city}". Please check the city name or try a different location.`);
     }
 }
 
@@ -1242,6 +1276,12 @@ function handleCityChange() {
 // Display air quality data with live API integration
 async function displayAirQuality(city) {
     try {
+        // Show loading overlay
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'flex';
+        }
+        
         // Show loading state
         showLoadingState();
         
@@ -1314,7 +1354,13 @@ async function displayAirQuality(city) {
         
     } catch (error) {
         console.error('Error displaying air quality:', error);
-        showErrorState(city);
+        showErrorState(city, error);
+    } finally {
+        // Hide loading overlay
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'none';
+        }
     }
 }
 
@@ -1326,14 +1372,25 @@ function showLoadingState() {
     if (statusText) statusText.textContent = 'Loading';
 }
 
-function showErrorState(city) {
+function showErrorState(city, error = null) {
     const aqiValue = document.querySelector('.aqi-value .number');
     const statusText = document.querySelector('.status-text');
     const statusDescription = document.querySelector('.status-description');
     
     if (aqiValue) aqiValue.textContent = '--';
     if (statusText) statusText.textContent = 'Error';
-    if (statusDescription) statusDescription.textContent = `Failed to load data for ${city}`;
+    
+    if (error && error.message.includes('Unable to find coordinates')) {
+        if (statusDescription) {
+            statusDescription.textContent = `Location not found: "${city}". Please check the spelling or try a nearby city.`;
+            statusDescription.style.color = 'var(--danger)';
+        }
+    } else {
+        if (statusDescription) {
+            statusDescription.textContent = `Failed to load data for ${city}`;
+            statusDescription.style.color = 'var(--text-secondary)';
+        }
+    }
 }
 
 function updateAQIDisplay(aqi, categoryInfo, city) {
