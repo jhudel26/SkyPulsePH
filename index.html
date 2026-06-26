@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkyPulsePH - Air Quality & Weather Monitor</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <meta name="theme-color" content="#6366f1">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%AC%3C/text%3E%3C/svg%3E">
+    
+    <!-- API Key Configuration -->
+    <script>
+        // Open-Meteo Air Quality API
+        // Get free API key from: https://open-meteo.com/en/docs/air-quality-api
+        // For air quality data, an API key may be required even for free tier
+        // Set your API key here or leave as 'open_meteo_free' for free tier
+        window.AIR_QUALITY_API_KEY = 'open_meteo_free';
+    </script>
+</head>
+<body class="light-theme">
+    <div class="background-animation">
+        <div class="floating-particles"></div>
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+    </div>
+    
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo" id="logo" style="cursor: pointer;">
+                    <div class="logo-icon">
+                        <i class="fas fa-wind"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1>SkyPulsePH</h1>
+                        <span class="logo-subtitle">Real-time Monitor</span>
+                    </div>
+                </div>
+                <div class="header-info">
+                    <div class="time-display">
+                        <span id="current-time" class="time"></span>
+                        <span id="current-date" class="date"></span>
+                    </div>
+                    <span id="last-updated" class="last-updated">
+                        <i class="fas fa-sync-alt"></i>
+                        Live updates
+                    </span>
+                </div>
+                <div class="header-controls">
+                    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <section class="location-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-map-marker-alt"></i> Select Location</h2>
+                    <p>Choose your region, province, and city to view air quality data</p>
+                </div>
+                <div class="location-selector">
+                    <div class="selector-group">
+                        <label for="region-select">
+                            <i class="fas fa-globe-asia"></i>
+                            Region
+                        </label>
+                        <div class="select-wrapper">
+                            <select id="region-select" class="select-input">
+                                <option value="">Choose a region...</option>
+                            </select>
+                            <i class="fas fa-chevron-down select-arrow"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="selector-group">
+                        <label for="province-select">
+                            <i class="fas fa-map"></i>
+                            Province
+                        </label>
+                        <div class="select-wrapper">
+                            <select id="province-select" class="select-input" disabled>
+                                <option value="">Choose a province...</option>
+                            </select>
+                            <i class="fas fa-chevron-down select-arrow"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="selector-group">
+                        <label for="city-select">
+                            <i class="fas fa-city"></i>
+                            City/Municipality
+                        </label>
+                        <div class="select-wrapper">
+                            <select id="city-select" class="select-input" disabled>
+                                <option value="">Choose a city/municipality...</option>
+                            </select>
+                            <i class="fas fa-chevron-down select-arrow"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="quick-locations">
+                    <span class="quick-label">Quick access:</span>
+                    <button class="quick-location-btn" data-city="Manila">Manila</button>
+                    <button class="quick-location-btn" data-city="Quezon City">Quezon City</button>
+                    <button class="quick-location-btn" data-city="Cebu City">Cebu</button>
+                    <button class="quick-location-btn" data-city="Davao City">Davao</button>
+                </div>
+            </section>
+
+            <section class="air-quality-section" id="air-quality-display" style="display: none;">
+                <div class="section-header">
+                    <h2><i class="fas fa-chart-line"></i> Air Quality Dashboard</h2>
+                    <div class="dashboard-actions">
+                        <button class="action-btn" id="refresh-btn">
+                            <i class="fas fa-sync-alt"></i>
+                            Refresh
+                        </button>
+                        <button class="action-btn" id="share-btn">
+                            <i class="fas fa-share-alt"></i>
+                            Share
+                        </button>
+                        <button class="action-btn" id="download-btn">
+                            <i class="fas fa-download"></i>
+                            Export
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="aqi-overview">
+                <div class="aqi-main-card">
+                    <div class="aqi-header">
+                        <h3 id="location-name">Select a location</h3>
+                        <div class="aqi-trend">
+                            <i class="fas fa-sync-alt"></i>
+                            <span>Live Open-Meteo data</span>
+                        </div>
+                    </div>
+                        <div class="aqi-value-container">
+                            <div class="aqi-value" id="aqi-value">
+                                <span class="number">--</span>
+                                <span class="unit">AQI</span>
+                            </div>
+                            <div class="aqi-status" id="aqi-status">
+                                <span class="status-text">No Data</span>
+                                <span class="status-description">Select a location to view air quality</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="aqi-visual-card">
+                        <div class="aqi-gauge-container">
+                            <div class="aqi-gauge" id="aqi-gauge">
+                                <svg class="gauge-svg" viewBox="0 0 200 200">
+                                    <circle class="gauge-background" cx="100" cy="100" r="90"></circle>
+                                    <circle class="gauge-progress" id="gauge-progress" cx="100" cy="100" r="90"></circle>
+                                </svg>
+                                <div class="gauge-center">
+                                    <span class="gauge-value" id="gauge-value">--</span>
+                                    <span class="gauge-label">AQI</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="aqi-scale">
+                            <div class="scale-item good">Good</div>
+                            <div class="scale-item moderate">Moderate</div>
+                            <div class="scale-item unhealthy">Unhealthy</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pollutants-grid">
+                    <div class="section-header">
+                        <h3><i class="fas fa-flask"></i> Pollutant Analysis</h3>
+                        <button class="view-toggle" id="pollutants-view-toggle">
+                            <i class="fas fa-th"></i>
+                        </button>
+                    </div>
+                    <div class="pollutants" id="pollutants-grid">
+                        <div class="pollutant-card" data-pollutant="pm25">
+                            <div class="pollutant-header">
+                                <div class="pollutant-icon pm25">
+                                    <i class="fas fa-smog"></i>
+                                </div>
+                                <div class="pollutant-info">
+                                    <span class="pollutant-name">PM2.5</span>
+                                    <span class="pollutant-desc">Fine Particles</span>
+                                </div>
+                            </div>
+                            <div class="pollutant-value" id="pm25-value">--</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                            <div class="pollutant-bar">
+                                <div class="pollutant-fill" id="pm25-fill"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="pollutant-card" data-pollutant="pm10">
+                            <div class="pollutant-header">
+                                <div class="pollutant-icon pm10">
+                                    <i class="fas fa-cloud"></i>
+                                </div>
+                                <div class="pollutant-info">
+                                    <span class="pollutant-name">PM10</span>
+                                    <span class="pollutant-desc">Coarse Particles</span>
+                                </div>
+                            </div>
+                            <div class="pollutant-value" id="pm10-value">--</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                            <div class="pollutant-bar">
+                                <div class="pollutant-fill" id="pm10-fill"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="pollutant-card" data-pollutant="o3">
+                            <div class="pollutant-header">
+                                <div class="pollutant-icon o3">
+                                    <i class="fas fa-sun"></i>
+                                </div>
+                                <div class="pollutant-info">
+                                    <span class="pollutant-name">O₃</span>
+                                    <span class="pollutant-desc">Ozone</span>
+                                </div>
+                            </div>
+                            <div class="pollutant-value" id="o3-value">--</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                            <div class="pollutant-bar">
+                                <div class="pollutant-fill" id="o3-fill"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="pollutant-card" data-pollutant="no2">
+                            <div class="pollutant-header">
+                                <div class="pollutant-icon no2">
+                                    <i class="fas fa-wind"></i>
+                                </div>
+                                <div class="pollutant-info">
+                                    <span class="pollutant-name">NO₂</span>
+                                    <span class="pollutant-desc">Nitrogen Dioxide</span>
+                                </div>
+                            </div>
+                            <div class="pollutant-value" id="no2-value">--</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                            <div class="pollutant-bar">
+                                <div class="pollutant-fill" id="no2-fill"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="pollutant-card" data-pollutant="so2">
+                            <div class="pollutant-header">
+                                <div class="pollutant-icon so2">
+                                    <i class="fas fa-industry"></i>
+                                </div>
+                                <div class="pollutant-info">
+                                    <span class="pollutant-name">SO₂</span>
+                                    <span class="pollutant-desc">Sulfur Dioxide</span>
+                                </div>
+                            </div>
+                            <div class="pollutant-value" id="so2-value">--</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                            <div class="pollutant-bar">
+                                <div class="pollutant-fill" id="so2-fill"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="pollutant-card" data-pollutant="co">
+                            <div class="pollutant-header">
+                                <div class="pollutant-icon co">
+                                    <i class="fas fa-fire"></i>
+                                </div>
+                                <div class="pollutant-info">
+                                    <span class="pollutant-name">CO</span>
+                                    <span class="pollutant-desc">Carbon Monoxide</span>
+                                </div>
+                            </div>
+                            <div class="pollutant-value" id="co-value">--</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                            <div class="pollutant-bar">
+                                <div class="pollutant-fill" id="co-fill"></div>
+                            </div>
+                        </div>
+                        <div class="pollutant-card" data-pollutant="co2">
+                            <div class="pollutant-header">
+                                <div class="pollutant-icon co2" style="background: linear-gradient(135deg, #0ea5e9, #0284c7);">
+                                    <i class="fas fa-wind"></i>
+                                </div>
+                                <div class="pollutant-info">
+                                    <span class="pollutant-name">CO₂</span>
+                                    <span class="pollutant-desc">Carbon Dioxide</span>
+                                </div>
+                            </div>
+                            <div class="pollutant-value" id="co2-value">--</div>
+                            <div class="pollutant-unit">ppm</div>
+                            <div class="pollutant-bar">
+                                <div class="pollutant-fill" id="co2-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="health-recommendations">
+                    <div class="section-header">
+                        <h3><i class="fas fa-heart"></i> Health Recommendations</h3>
+                        <div class="health-indicator">
+                            <span class="indicator-dot" id="health-indicator"></span>
+                            <span class="indicator-text" id="health-indicator-text">Moderate</span>
+                        </div>
+                    </div>
+                    <div class="recommendations" id="health-recommendations">
+                        <div class="recommendation-card general">
+                            <div class="recommendation-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="recommendation-content">
+                                <h4>General Public</h4>
+                                <p>Select a location to see health recommendations</p>
+                                <div class="recommendation-actions">
+                                    <span class="action-tag outdoor">Outdoor Activity</span>
+                                    <span class="action-tag mask">Mask Required</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="recommendation-card sensitive">
+                            <div class="recommendation-icon">
+                                <i class="fas fa-baby"></i>
+                            </div>
+                            <div class="recommendation-content">
+                                <h4>Sensitive Groups</h4>
+                                <p>Select a location to see health recommendations</p>
+                                <div class="recommendation-actions">
+                                    <span class="action-tag indoor">Stay Indoors</span>
+                                    <span class="action-tag purifier">Use Air Purifier</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="forecast-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-chart-area"></i> 5-Day Forecast</h3>
+                    </div>
+                    <div class="forecast-legend" id="forecast-legend"></div>
+                    <div class="forecast-chart" id="forecast-chart">
+                        <canvas id="forecast-canvas"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section class="weather-section" id="weather-display" style="display: none;">
+                <div class="section-header">
+                    <h2><i class="fas fa-cloud-sun"></i> Weather Forecast</h2>
+                    <div class="weather-source">
+                        <i class="fas fa-sync-alt"></i>
+                        <span>Live Open-Meteo data</span>
+                    </div>
+                </div>
+                
+                <div class="weather-current">
+                    <div class="current-weather-card">
+                        <div class="weather-icon-large">
+                            <i id="current-weather-icon" class="fas fa-sun"></i>
+                        </div>
+                        <div class="weather-details">
+                            <div class="temperature">
+                                <span id="current-temperature" class="temp-value">--</span>
+                                <span class="temp-unit">°C</span>
+                            </div>
+                            <div class="weather-description" id="weather-description">Select a location</div>
+                            <div class="feels-like">Feels like <span id="feels-like">--</span>°C</div>
+                        </div>
+                    </div>
+                    
+                    <div class="weather-stats">
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-tint"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-label">Humidity</span>
+                                <span id="humidity" class="stat-value">--%</span>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-wind"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-label">Wind Speed</span>
+                                <span id="wind-speed" class="stat-value">-- km/h</span>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-compass"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-label">Wind Direction</span>
+                                <span id="wind-direction" class="stat-value">--°</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="weather-forecast">
+                    <div class="section-header">
+                        <h3><i class="fas fa-calendar-alt"></i> 5-Day Weather Forecast</h3>
+                    </div>
+                    <div class="forecast-cards" id="weather-forecast-cards">
+                        <!-- Forecast cards will be generated by JavaScript -->
+                    </div>
+                </div>
+            </section>
+
+            <section class="info-section" id="main-info-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-info-circle"></i> Learn About Air Quality</h2>
+                </div>
+                <div class="info-cards">
+                    <div class="info-card interactive">
+                        <div class="card-icon">
+                            <i class="fas fa-question-circle"></i>
+                        </div>
+                        <h3>About AQI</h3>
+                        <p>The Air Quality Index (AQI) is a standardized system used to communicate air pollution levels to public. It ranges from 0 to 500, with higher values indicating worse air quality.</p>
+                        <button class="learn-more-btn" data-section="about">Learn More <i class="fas fa-arrow-right"></i></button>
+                    </div>
+                    <div class="info-card categories">
+                        <div class="card-icon">
+                            <i class="fas fa-palette"></i>
+                        </div>
+                        <h3>AQI Categories</h3>
+                        <div class="aqi-categories-list">
+                            <div class="category-item good">
+                                <span class="range">0-50</span>
+                                <span class="label">Good</span>
+                                <span class="icon">😊</span>
+                            </div>
+                            <div class="category-item moderate">
+                                <span class="range">51-100</span>
+                                <span class="label">Moderate</span>
+                                <span class="icon">😐</span>
+                            </div>
+                            <div class="category-item unhealthy-sensitive">
+                                <span class="range">101-150</span>
+                                <span class="label">Unhealthy for Sensitive</span>
+                                <span class="icon">😷</span>
+                            </div>
+                            <div class="category-item unhealthy">
+                                <span class="range">151-200</span>
+                                <span class="label">Unhealthy</span>
+                                <span class="icon">😰</span>
+                            </div>
+                            <div class="category-item very-unhealthy">
+                                <span class="range">201-300</span>
+                                <span class="label">Very Unhealthy</span>
+                                <span class="icon">😨</span>
+                            </div>
+                            <div class="category-item hazardous">
+                                <span class="range">301+</span>
+                                <span class="label">Hazardous</span>
+                                <span class="icon">☠️</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- About Section -->
+    <section id="about" class="info-section" style="display: none;">
+        <div class="container">
+            <div class="section-header">
+                <h2><i class="fas fa-info-circle"></i> About SkyPulsePH</h2>
+                <button class="back-btn">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+            </div>
+            <div class="info-cards">
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h3>Our Mission</h3>
+                    <p>SkyPulsePH provides real-time air quality and weather data for cities and municipalities across the Philippines. We aim to help Filipinos make informed decisions about their daily activities based on current air and weather conditions.</p>
+                    <p>Our data is updated regularly and presented in an easy-to-understand format with health recommendations for different population groups.</p>
+                </div>
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-globe-asia"></i>
+                    </div>
+                    <h3>Data Source</h3>
+                    <p>Data is provided by Open-Meteo Air Quality API using CAMS global atmospheric composition forecasts.</p>
+                    <p>Open-Meteo offers free and open weather and air quality data for everyone.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Data Sources Section -->
+    <section id="data-sources" class="info-section" style="display: none;">
+        <div class="container">
+            <div class="section-header">
+                <h2><i class="fas fa-database"></i> Data Sources</h2>
+                <button class="back-btn">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+            </div>
+            <div class="info-cards">
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-cloud"></i>
+                    </div>
+                    <h3>Open-Meteo API</h3>
+                    <p>All air quality data is provided by the Open-Meteo Air Quality API, which uses CAMS global atmospheric composition forecasts.</p>
+                    <p>Open-Meteo offers free and open weather and air quality data for everyone.</p>
+                </div>
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <h3>Update Frequency</h3>
+                    <p>Air quality data is fetched directly from the Open-Meteo API and cached for 10 minutes to ensure the most current information is available to users.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+
+    <!-- Health Guidelines Section -->
+    <section id="health-guidelines" class="info-section" style="display: none;">
+        <div class="container">
+            <div class="section-header">
+                <h2><i class="fas fa-heartbeat"></i> Health Guidelines</h2>
+                <button class="back-btn">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+            </div>
+            <div class="info-cards">
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3>General Population</h3>
+                    <p><strong>Good (0-50):</strong> Normal outdoor activities</p>
+                    <p><strong>Moderate (51-100):</strong> Sensitive individuals should limit prolonged outdoor exertion</p>
+                    <p><strong>Unhealthy (101+):</strong> Everyone should avoid outdoor activities</p>
+                </div>
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-baby"></i>
+                    </div>
+                    <h3>Sensitive Groups</h3>
+                    <p>Children, elderly, pregnant women, and individuals with respiratory or heart conditions should take extra precautions.</p>
+                    <p>Consult healthcare providers for specific medical advice related to air quality conditions.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+
+
+
+    <!-- FAQ Section -->
+    <section id="faq" class="info-section" style="display: none;">
+        <div class="container">
+            <div class="section-header">
+                <h2><i class="fas fa-question-circle"></i> Frequently Asked Questions</h2>
+                <button class="back-btn">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+            </div>
+            <div class="info-cards">
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-question"></i>
+                    </div>
+                    <h3>What is AQI?</h3>
+                    <p>The Air Quality Index (AQI) is a standardized system that reports air pollution levels on a scale from 0 to 500. Higher values indicate worse air quality.</p>
+                </div>
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-question"></i>
+                    </div>
+                    <h3>How often is data updated?</h3>
+                    <p>Air quality data is fetched from the Open-Meteo API and cached for 10 minutes to ensure the most current information is available.</p>
+                </div>
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-question"></i>
+                    </div>
+                    <h3>Is the data free?</h3>
+                    <p>Yes, all air quality data on our platform is free for public use, provided by Open-Meteo.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Privacy Policy Section -->
+    <section id="privacy" class="info-section" style="display: none;">
+        <div class="container">
+            <div class="section-header">
+                <h2><i class="fas fa-shield-alt"></i> Privacy Policy</h2>
+                <button class="back-btn">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+            </div>
+            <div class="info-cards">
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <h3>Data Collection</h3>
+                    <p>We fetch air quality data from Open-Meteo API and do not collect personal information from users.</p>
+                    <p>Location data is only used to provide relevant air quality information and is not stored or shared.</p>
+                </div>
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-cookie"></i>
+                    </div>
+                    <h3>Cookies</h3>
+                    <p>We use essential cookies only for website functionality and user preferences. No tracking cookies are used.</p>
+                    <p>You can control cookie settings through your browser preferences.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Terms of Service Section -->
+    <section id="terms" class="info-section" style="display: none;">
+        <div class="container">
+            <div class="section-header">
+                <h2><i class="fas fa-file-contract"></i> Terms of Service</h2>
+                <button class="back-btn">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+            </div>
+            <div class="info-cards">
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <h3>Usage Terms</h3>
+                    <p>Our air quality data is provided "as is" for informational purposes. We make no warranties about data accuracy or completeness.</p>
+                    <p>Users should not rely solely on our data for health decisions.</p>
+                </div>
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-ban"></i>
+                    </div>
+                    <h3>Prohibited Uses</h3>
+                    <p>Please refer to Open-Meteo's terms of service for data usage guidelines.</p>
+                    <p>We do not provide our own API; all data comes from Open-Meteo.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Cookie Policy Section -->
+    <section id="cookies" class="info-section" style="display: none;">
+        <div class="container">
+            <div class="section-header">
+                <h2><i class="fas fa-cookie-bite"></i> Cookie Policy</h2>
+                <button class="back-btn">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+            </div>
+            <div class="info-cards">
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-cookie"></i>
+                    </div>
+                    <h3>Essential Cookies</h3>
+                    <p>Required for basic website functionality including theme preferences and location settings.</p>
+                    <p>These cookies cannot be disabled as they are essential for the website to work properly.</p>
+                </div>
+                <div class="info-card">
+                    <div class="card-icon">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <h3>Analytics Cookies</h3>
+                    <p>We use anonymous analytics to understand how our website is used and improve our services.</p>
+                    <p>No personal information is collected through analytics cookies.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <div class="footer-logo">
+                        <i class="fas fa-wind"></i>
+                        <span>SkyPulsePH</span>
+                    </div>
+                    <p>Real-time air quality & weather monitoring for Philippines</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="#about">About</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="#health-guidelines">Health Guidelines</a></li>
+                        <li><a href="#faq">FAQ</a></li>
+                    </ul>
+                </div>
+
+            </div>
+            <div class="footer-bottom">
+                <div class="footer-copyright">
+                    <p>&copy; 2026 SkyPulsePH. All rights reserved.</p>
+                    <p class="developer-credit">Developed by <a href="https://jhudel.vercel.app/" target="_blank" rel="noopener noreferrer" class="developer-link">Jhudel</a></p>
+                </div>
+                <div class="footer-links">
+                    <a href="#privacy">Privacy Policy</a>
+                    <a href="#terms">Terms of Service</a>
+                    <a href="#cookies">Cookie Policy</a>
+                </div>
+            </div>
+    </footer>
+    
+    <script src="script.js?v=12"></script>
+</body>
+</html>
