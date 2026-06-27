@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://skypulseph.vercel.app/sitemap.xml
+
+# Optional crawl delay
+Crawl-delay: 5
